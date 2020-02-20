@@ -1,10 +1,10 @@
-let log4js = require('log4js');
+let log4js = require('log4js')
 log4js.configure({
     appenders: { technical_test: { type: 'file', filename: 'technical_test.log' } },
     categories: { default: { appenders: ['technical_test'], level: 'info' } }
 });
 
-let logger = log4js.getLogger('technical_test');
+let logger = log4js.getLogger('technical_test')
 
 let Workers = [
     {firstname: "Izi", lastname: 'Work', address: {streetname: "21 rue de Chateaudun", country: "FR", city: "Paris"}},
@@ -14,6 +14,7 @@ let Workers = [
 
 if (typeof Workers !== "undefined" && Workers) {
     module.exports = Workers
+    logger.info('List of workers exist')
 } else {
     logger.error('List of workers do not exist')
 }

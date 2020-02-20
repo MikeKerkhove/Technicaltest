@@ -1,4 +1,6 @@
-let log4js = require('log4js');
+let _ = require('lodash')
+let https = require('https')
+let log4js = require('log4js')
 log4js.configure({
     appenders: { technical_test: { type: 'file', filename: 'technical_test.log' } },
     categories: { default: { appenders: ['technical_test'], level: 'info' } }
@@ -7,11 +9,22 @@ log4js.configure({
 let logger = log4js.getLogger('technical_test');
 
 function getPosition (workers) {
-    if (typeof workers === "undefined" && workers){
-        logger.error('List of workers is undefined')
-    } else {
-        logger.info('List of workers created');
-    }
+    _.find(workers, (n) => {
+        let streetname = n.address.streetname
+        let city = n.address.city
+        let country = n.address.country
+        https.get('https://api-adresse.data.gouv.fr/search/?q=' + streetname + city, (res) =>{
+            let data = ''
+            res.on('data', chunk => {
+                data += chunk
+            })
+            res.on('end',() => {
+                console.log(JSON.parse(data))
+            })
+        }).on("error", (err) => {
+            console.log("Error: " + err.message);
+        })
+    })
 }
 
 module.exports = {

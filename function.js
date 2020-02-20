@@ -1,40 +1,68 @@
-let _ = require('lodash')
-let https = require('https')
+// Load dependencies
+let axios = require('axios')
 let log4js = require('log4js')
+
+// Config log4js to log in file ./technical_test.log
 log4js.configure({
     appenders: { technical_test: { type: 'file', filename: 'technical_test.log' } },
     categories: { default: { appenders: ['technical_test'], level: 'info' } }
 });
 
+// add shortcut
 let logger = log4js.getLogger('technical_test');
 
-function getPosition (workers) {
-    let result = []
-    _.find(workers, (n) => {
-        let firstname = n.firstname
-        let lastname = n.lastname
-        let streetname = n.address.streetname
-        let city = n.address.city
-        let country = n.address.country
-        https.get('https://api-adresse.data.gouv.fr/search/?q=' + streetname + ' ' + city, (res) =>{
-            let data = ''
-            res.on('data', chunk => {
-                data += chunk
+// map list of workers and get position lat and lon
+function getPosition(workers) {
+    return Promise.all(workers.map(worker => {
+        let accurate = true
+        const {firstname, lastname, address: {streetname, city, country}} = worker;
+        // check if firstname is defined
+        if (typeof worker.firstname === 'undefined' || worker.firstname === ''){
+            logger.error('Firstname is not set')
+        }
+        // check if lastname is defined
+        if (typeof worker.lastname === 'undefined' || worker.lastname === ''){
+            logger.error('Lastname is not set')
+        }
+        // check if streetname is defined
+        if (typeof worker.address.streetname === 'undefined' || worker.address.streetname === ''){
+            logger.error('Streetname is not set')
+            accurate = false
+        }
+        // check if city is defined
+        if (typeof worker.address.city === 'undefined' || worker.address.city === ''){
+            logger.error('City is not set')
+            accurate = false
+        }
+        return axios.get('https://api-adresse.data.gouv.fr/search/?q=' + streetname + ' ' + city)
+            .then(response => {
+                const [lon, lat] = response.data.features[0].geometry.coordinates;
+                if (accurate === false) {
+                    logger.error('datas for ' + firstname + ' ' + lastname + ' are not accurate. Please check them and retry')
+                } else {
+                    // check if worker city is the same as api result
+                    let string = response.data.features[0].properties.city
+                    let string2 = worker.address.city
+                    if (string.normalize('NFD').replace(/[\u0300-\u036f]/g, "") !== string2.normalize('NFD').replace(/[\u0300-\u036f]/g, "")){
+                        logger.error('This address does not exist in this city')
+                    } else {
+                        logger.info('Success call to API')
+                        logger.info('Longitude and latitude for ' + firstname + ' ' + lastname + ' are ' + lon + ',' + lat)
+                        return {
+                            firstname: firstname,
+                            lastname: lastname,
+                            address: {streetname, country, city, lon, lat}
+                        };
+                    }
+                }
             })
-            res.on('end',() => {
-                let infos = JSON.parse(data)
-                let lon = infos.features[0].geometry.coordinates[0]
-                let lat = infos.features[0].geometry.coordinates[1]
-                let finalResult = {firstname: firstname, lastname: lastname, address: {streetname: streetname, country: country, city: city, lon: lon, lat: lat} }
-                result.push(finalResult)
-                console.log(result)
+            .catch(() => {
+                logger.error('API call does not work ! please check and retry')
             })
-        }).on("error", (err) => {
-            console.log("Error: " + err.message);
-        })
-    })
+    }));
 }
 
+// export function getPosition
 module.exports = {
     getPosition: getPosition
 }

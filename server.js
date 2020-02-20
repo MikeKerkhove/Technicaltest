@@ -27,7 +27,7 @@ http.createServer((req, res) => {
             res.write(data)
             res.write('Salut les gens')
             logger.info('index.html is loaded')
-            action.getPosition(workers)
+            let result = action.getPosition(workers)
             res.end()
         }
     })
